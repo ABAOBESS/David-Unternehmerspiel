@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Entrepreneurship Sprint 8 — Control Suite</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      :root{
+        --bg:#0f172a;
+        --panel:#1e293b;
+        --muted:#cbd5e1; /* Lighter grey for better readability */
+        --primary:#22d3ee;
+        --accent:#f97316;
+        --ok:#4ade80;
+        --warn:#facc15;
+        --danger:#f87171;
+      }
+      *{box-sizing:border-box} 
+      body{
+        margin:0;
+        font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+        background: #0f172a;
+        color:#f1f5f9; 
+        min-height: 100vh;
+        font-size: 16px; /* Increased base size */
+      }
+      
+      /* Control Suite Specific Styles */
+      .panel{
+        background:var(--panel);
+        border:1px solid rgba(255,255,255,.1);
+        border-radius:16px;
+        padding:20px;
+        box-shadow:0 10px 30px rgba(0,0,0,.5);
+      }
+      h2{margin:0 0 12px; font-weight: 800; font-size: 1.5rem; letter-spacing: -0.02em;} 
+      .muted{color:var(--muted); font-size: 0.95rem; line-height: 1.5;}
+      
+      button{border:none;border-radius:12px;padding:12px 20px;font-weight:700;cursor:pointer; transition: all 0.2s; font-size: 1rem;}
+      .btn{background:linear-gradient(180deg,#0ea5e9,#0284c7);color:white; box-shadow: 0 4px 12px rgba(14, 165, 233, 0.3);}
+      .btn:hover{filter: brightness(1.1); transform: translateY(-1px);}
+      .btn:active{transform: translateY(0);}
+      
+      .btn-ghost{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,.1);color:#e2e8f0}
+      .btn-ghost:hover{background:rgba(255,255,255,.1);}
+      
+      .btn-danger{background:linear-gradient(180deg,#ef4444,#dc2626);color:white; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);}
+      .btn-warn{background:linear-gradient(180deg,#f59e0b,#d97706);color:white; text-shadow: 0 1px 2px rgba(0,0,0,0.2); box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);}
+      
+      .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+      
+      input,select,textarea{
+        background:rgba(0,0,0,0.3);
+        color:#fff;
+        border:1px solid rgba(255,255,255,.2);
+        border-radius:10px;
+        padding:10px 14px;
+        font-size: 1rem;
+      }
+      input:focus,select:focus{outline:2px solid var(--primary); border-color:transparent; background:rgba(0,0,0,0.5);}
+
+      .pill{padding:4px 12px;border-radius:999px;font-size:0.85rem;border:1px solid rgba(255,255,255,.15); font-weight: 700; letter-spacing: 0.02em;}
+      .pill-ok{color:#dcfce7;background:#14532d;box-shadow:inset 0 0 0 1px rgba(74, 222, 128, 0.3)}
+      .pill-warn{color:#fef3c7;background:#78350f;box-shadow:inset 0 0 0 1px rgba(251, 191, 36, 0.3)}
+      .pill-danger{color:#fee2e2;background:#7f1d1d;box-shadow:inset 0 0 0 1px rgba(248, 113, 113, 0.3)}
+
+      .table{width:100%;border-collapse:separate; border-spacing: 0;}
+      .table th{text-align: left; opacity: 0.8; font-weight: 600; padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.1);}
+      .table td{border-bottom:1px solid rgba(255,255,255,.05);padding:12px;font-size:0.95rem}
+      .table tr:last-child td {border-bottom: none;}
+      
+      /* Specific Component Styles */
+      .timer .display{font-size:3.5rem;font-weight:900;letter-spacing:-1px; font-variant-numeric: tabular-nums; line-height: 1;}
+      
+      .team-row {display:grid;grid-template-columns:1fr auto auto;gap:16px;align-items:center;padding:16px;border-radius:12px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08); transition: background 0.2s;}
+      .team-row:hover {background:rgba(255,255,255,.06);}
+      
+      .abc-opt {background:#1e293b;border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:20px; cursor:pointer; transition:transform .1s ease, box-shadow .1s ease, border-color .1s;}
+      .abc-opt:hover{transform:translateY(-2px); box-shadow:0 10px 25px rgba(0,0,0,.4); border-color: var(--primary);}
+      
+      ::-webkit-scrollbar { width: 10px; height: 10px; }
+      ::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
+      ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 5px; border: 2px solid transparent; background-clip: content-box; }
+      ::-webkit-scrollbar-thumb:hover { background-color: rgba(255,255,255,0.3); }
+
+      @media print{ header,.admin-only{display:none} body{background:#fff;color:#000} .panel{box-shadow:none; border:1px solid #ddd; color: black;} }
+    </style>
+    <script type="importmap">
+    {
+      "imports": {
+        "react": "https://aistudiocdn.com/react@^19.2.0",
+        "react/": "https://aistudiocdn.com/react@^19.2.0/",
+        "recharts": "https://aistudiocdn.com/recharts@^3.5.0",
+        "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
+        "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/"
+      }
+    }
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
