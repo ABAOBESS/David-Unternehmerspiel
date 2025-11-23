@@ -5,19 +5,29 @@ export interface Team {
   points: number;
   icon: string;
   secretActions: SecretActionEntry[];
-  investorFlag?: boolean;
-  // Optional properties to support AppTeamView if needed
-  currentDecisions?: RoundDecisions;
+  
+  // New Mechanics
+  industry?: IndustryType;
+  history: string[]; // Array of 'A'|'B'|'C' choices per year
+  jokerActive?: 'BANK' | 'SHARK';
+  
+  // Client State
+  currentDecisions?: RoundDecisions; 
   isReady?: boolean;
+  selectedOption?: 'A' | 'B' | 'C'; // The option they clicked on their device
+
+  // Extended State for AppTeamView
   state?: {
-      capital: number;
-      innovation: number;
-      awareness: number;
-      employees: number;
-      history: RoundResult[];
+    history: RoundResult[];
+    innovation: number;
+    awareness: number;
+    employees: number;
+    capital: number;
   };
   playerCount?: number;
 }
+
+export type IndustryType = 'TECH' | 'CRAFT' | 'SERVICE';
 
 export interface SecretActionEntry {
   id: string;
@@ -36,7 +46,7 @@ export interface Assignment {
   year: number;
   teamId: string;
   teamName: string;
-  option: 'A' | 'B' | 'C';
+  option: string;
   amt: number;
   pts: number;
   note: string;
@@ -46,29 +56,27 @@ export interface GameState {
   year: number;
   teams: Team[];
   assignments: Assignment[];
-  round?: number; // Added for compatibility with AppTeamView usage
-  isGameOver?: boolean;
+  // Extended state
+  round?: number;
   currentEvent?: GameEvent;
+  isGameOver?: boolean;
 }
 
-// Configuration Types from Constants
+// Configuration Types
 export interface YearOption {
+  title: string; // Added title for card display
   amt: number;
   pts: number;
   note: string;
+  id?: string; // For branching reference
 }
 
 export interface YearConfig {
   year: number;
   title: string;
-  A: YearOption;
-  B: YearOption;
-  C: YearOption;
-}
-
-export interface StoryConfig {
-  title: string;
-  story: string;
+  scenario: string;
+  // Dynamic options based on previous path
+  options: (history: string[]) => { A: YearOption, B: YearOption, C: YearOption };
 }
 
 export interface PublicCard {
@@ -109,25 +117,26 @@ export interface SecretEffectConfig {
   options: SecretEffectOption[];
 }
 
-// --- New Types Added to Fix Errors ---
+// --- Extended Types for AI and Detailed Views ---
 
 export enum PriceStrategy {
-  LOW = 'Niedrig',
-  MEDIUM = 'Mittel',
-  HIGH = 'Hoch'
+  SKIMMING = 'SKIMMING',
+  PENETRATION = 'PENETRATION',
+  BALANCED = 'BALANCED'
 }
 
 export interface RoundDecisions {
+  submitted: boolean;
   productInvest: number;
   marketingInvest: number;
   coopInvest: boolean;
   hiringDelta: number;
   priceStrategy: PriceStrategy;
   plannedSales: number;
-  submitted: boolean;
 }
 
 export interface GameEvent {
+  id?: string;
   title: string;
   description: string;
   marketMultiplier: number;
@@ -137,7 +146,6 @@ export interface GameEvent {
 export interface RoundResult {
   round: number;
   event: GameEvent;
-  decisions: RoundDecisions;
   revenue: number;
   variableCosts: number;
   fixedCosts: number;
@@ -147,6 +155,7 @@ export interface RoundResult {
   profit: number;
   cumulativeCapital: number;
   sales: number;
+  decisions: RoundDecisions;
   innovationLevel: number;
   awarenessLevel: number;
   totalScore: number;

@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-import { GameState, Team } from '../types';
-import { PUBLIC_CARDS, SECRET_CARDS, SECRET_EXPLAIN, SECRET_EFFECTS, ICONS } from '../constants';
-import { uid, formatCurrency } from '../services/gameLogic';
-import { audioService } from '../services/audioService';
+import { GameState, Team, IndustryType } from '../types';
+import { PUBLIC_CARDS, SECRET_CARDS, JOKERS, INDUSTRIES } from '../constants';
+import { formatCurrency } from '../services/gameLogic';
 
 interface Props {
   gameState: GameState;
@@ -14,244 +13,166 @@ interface Props {
   onApplyEvent: (cardId: string, amt: number, pts: number, targetId: string) => void;
   onAssignSecret: (teamId: string, player: string, cardId: string) => void;
   onResolveSecret: (teamId: string, secretId: string, cardId: string, option: any, targetTeamId?: string) => void;
+  onApplyJoker: (teamId: string, type: 'BANK' | 'SHARK') => void;
 }
 
 const AdminDashboard: React.FC<Props> = ({ 
   gameState, onUpdateTeam, onAddTeam, onDeleteTeam, onSetAllCapital, onReset,
-  onApplyEvent, onAssignSecret, onResolveSecret
+  onApplyEvent, onAssignSecret, onResolveSecret, onApplyJoker
 }) => {
   const [newTeamName, setNewTeamName] = useState('');
-  const [newTeamIcon, setNewTeamIcon] = useState('gear');
   const [startKap, setStartKap] = useState(100000);
-  
-  const [selectedCardId, setSelectedCardId] = useState(PUBLIC_CARDS[0].id);
-  const [applyAmount, setApplyAmount] = useState(PUBLIC_CARDS[0].amt);
-  const [applyPoints, setApplyPoints] = useState(PUBLIC_CARDS[0].pts);
-  const [applyTarget, setApplyTarget] = useState('all');
-  const [sirenMode, setSirenMode] = useState<'twotone'|'whoop'|'beacon'|'off'>('twotone');
-  const [volume, setVolume] = useState(0.6);
+  const [applyAmount, setApplyAmount] = useState(0);
 
-  const [secretTeamId, setSecretTeamId] = useState('');
-  const [secretPlayer, setSecretPlayer] = useState('');
-  const [secretCardId, setSecretCardId] = useState(SECRET_CARDS[0].id);
-
-  // QR Code Generation
   const getQRUrl = (teamId: string) => {
     const url = `${window.location.origin}${window.location.pathname}?team=${teamId}`;
     return `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(url)}`;
   };
 
-  const handleAddTeam = () => {
-    onAddTeam(newTeamName || `Team ${gameState.teams.length + 1}`, newTeamIcon, startKap);
-    setNewTeamName('');
-  };
-
-  const handleCardSelect = (id: string) => {
-    setSelectedCardId(id);
-    const c = PUBLIC_CARDS.find(card => card.id === id);
-    if (c) {
-      setApplyAmount(c.amt);
-      setApplyPoints(c.pts);
-    }
-  };
-
-  const handleApplyPublic = () => {
-    onApplyEvent(selectedCardId, applyAmount, applyPoints, applyTarget);
-    audioService.playSiren(sirenMode, volume);
-  };
-
   return (
-    <div className="grid grid-cols-1 xl:grid-cols-[400px_1fr] gap-6">
-      {/* Team Management */}
+    <div className="grid grid-cols-1 xl:grid-cols-[450px_1fr] gap-6">
+      
+      {/* LEFT: Team Management */}
       <div className="panel flex flex-col h-[calc(100vh-100px)]">
-        <h2>Teams verwalten</h2>
+        <h2>Teams</h2>
         
-        <div className="bg-black/20 p-4 rounded-xl mb-4 border border-white/5">
-            <div className="row mb-3">
-              <input placeholder="Neues Team" value={newTeamName} onChange={e => setNewTeamName(e.target.value)} className="flex-1 text-lg" />
-              <select value={newTeamIcon} onChange={e => setNewTeamIcon(e.target.value)} className="w-16 text-2xl">
-                 {Object.keys(ICONS).map(k => <option key={k} value={k}>{k}</option>)}
-              </select>
-              <button className="btn font-bold text-xl px-4" onClick={handleAddTeam}>+</button>
+        {/* Creator */}
+        <div className="bg-black/20 p-3 rounded-xl mb-4 border border-white/5">
+            <div className="row mb-2">
+              <input placeholder="Neues Team" value={newTeamName} onChange={e => setNewTeamName(e.target.value)} className="flex-1" />
+              <button className="btn" onClick={() => { onAddTeam(newTeamName || `Team ${gameState.teams.length+1}`, 'rocket', startKap); setNewTeamName(''); }}>+</button>
             </div>
-            <div className="row items-center justify-between">
-               <div className="flex items-center gap-2">
-                   <label className="text-xs uppercase font-bold text-slate-400">Startkapital</label>
-                   <input type="number" value={startKap} onChange={e => setStartKap(Number(e.target.value))} className="w-28 text-right font-mono" />
-               </div>
-               <div className="flex gap-2">
-                   <button className="btn-ghost text-xs py-2" onClick={() => onSetAllCapital(startKap)}>Set All</button>
-                   <button className="btn-danger text-xs py-2" onClick={() => { if(confirm('Reset all?')) onReset(); }}>Reset</button>
-               </div>
+            <div className="row text-xs">
+               <label>Startkap:</label>
+               <input type="number" value={startKap} onChange={e => setStartKap(Number(e.target.value))} className="w-20" />
+               <button className="btn-ghost py-1" onClick={() => onSetAllCapital(startKap)}>Set All</button>
             </div>
         </div>
         
-        <div className="flex flex-col gap-3 overflow-y-auto pr-2 flex-1 custom-scrollbar">
+        {/* Team List */}
+        <div className="flex flex-col gap-3 overflow-y-auto pr-2 custom-scrollbar flex-1">
           {gameState.teams.map(t => (
-            <div key={t.id} className="team-row p-3">
-               <div className="flex flex-col flex-1">
-                 <div className="font-bold text-lg">{t.name}</div>
-                 <div className="row mt-1">
-                     <a href={`?team=${t.id}`} target="_blank" className="text-xs bg-blue-900/50 text-blue-200 px-2 py-1 rounded hover:bg-blue-800">Link</a>
-                     <details className="inline-block relative">
-                        <summary className="cursor-pointer text-xs bg-white/10 px-2 py-1 rounded hover:bg-white/20">QR Code</summary>
-                        <div className="absolute top-8 left-0 z-50 bg-white p-4 rounded-xl shadow-2xl border-4 border-indigo-500 w-[200px] h-[200px] flex items-center justify-center">
-                             <img src={getQRUrl(t.id)} alt="QR" className="w-full h-full" />
-                        </div>
-                     </details>
-                 </div>
+            <div key={t.id} className="bg-[#1e293b] p-3 rounded-lg border border-white/5 relative">
+               <div className="flex justify-between items-start mb-2">
+                   <div>
+                       <div className="font-bold text-lg">{t.name}</div>
+                       <div className="text-xs text-slate-400">
+                           {t.industry ? INDUSTRIES[t.industry].label : 'Keine Branche'}
+                       </div>
+                   </div>
+                   <div className="text-right">
+                       <div className={`font-mono font-bold ${t.capital < 0 ? 'text-red-500' : 'text-green-400'}`}>
+                           {formatCurrency(t.capital)}
+                       </div>
+                       <div className="text-sm font-bold text-yellow-500">{t.points} Pkt</div>
+                   </div>
                </div>
-               <div className="flex flex-col text-right">
-                 <div className="font-mono text-lg font-bold text-green-400">{formatCurrency(t.capital)}</div>
-                 <div className="text-sm font-bold text-slate-400">{t.points} Pkt</div>
-               </div>
-               <div className="flex flex-col gap-1">
-                 <button className="btn-ghost text-[10px] py-1 px-2 h-6" onClick={() => onUpdateTeam({...t, capital: t.capital + 1000})}>+1k</button>
-                 <button className="btn-ghost text-[10px] py-1 px-2 h-6" onClick={() => onUpdateTeam({...t, capital: t.capital - 1000})}>-1k</button>
-                 <button className="btn-danger text-[10px] py-1 px-2 h-6" onClick={() => onDeleteTeam(t.id)}>X</button>
+
+               {/* Joker Section for Insolvent Teams */}
+               {t.capital < 0 && !t.jokerActive && (
+                   <div className="bg-red-900/20 border border-red-500/50 p-2 rounded mb-2 animate-pulse">
+                       <div className="text-xs font-bold text-red-400 mb-1 uppercase tracking-wide">Insolvenz droht!</div>
+                       <div className="grid grid-cols-2 gap-2">
+                           <button className="btn bg-red-800 text-xs py-1 hover:bg-red-700" onClick={() => onApplyJoker(t.id, 'BANK')}>
+                               🏦 Kredit
+                           </button>
+                           <button className="btn bg-purple-800 text-xs py-1 hover:bg-purple-700" onClick={() => onApplyJoker(t.id, 'SHARK')}>
+                               🦈 Investor
+                           </button>
+                       </div>
+                   </div>
+               )}
+               {t.jokerActive && (
+                   <div className="text-xs text-red-400 bg-red-900/10 p-1 rounded text-center mb-2">
+                       Joker Aktiv: {t.jokerActive}
+                   </div>
+               )}
+
+               <div className="row text-[10px] justify-between border-t border-white/5 pt-2">
+                   <div className="flex gap-1">
+                       <a href={`?team=${t.id}`} target="_blank" className="btn-ghost px-2 py-1">Link</a>
+                       <details className="relative inline-block">
+                          <summary className="btn-ghost px-2 py-1 cursor-pointer list-none">QR</summary>
+                          <div className="absolute bottom-full left-0 mb-2 bg-white p-2 rounded shadow-xl z-50">
+                              <img src={getQRUrl(t.id)} className="w-32 h-32" />
+                          </div>
+                       </details>
+                   </div>
+                   <div className="flex gap-1">
+                       <button className="btn-ghost px-2 py-1" onClick={() => onUpdateTeam({...t, capital: t.capital + 10000})}>+10k</button>
+                       <button className="btn-ghost px-2 py-1" onClick={() => onUpdateTeam({...t, capital: t.capital - 10000})}>-10k</button>
+                       <button className="btn-danger px-2 py-1" onClick={() => onDeleteTeam(t.id)}>Del</button>
+                   </div>
                </div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Events & Secrets */}
-      <div className="flex flex-col gap-6 h-[calc(100vh-100px)] overflow-y-auto pr-2 custom-scrollbar">
-        
-        {/* Public Events Section */}
-        <div className="panel border-l-4 border-l-orange-500">
-           <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl text-orange-400 m-0">🔔 Öffentliches Ereignis</h2>
-              <div className="flex items-center gap-2 bg-black/30 px-3 py-1 rounded-full">
-                  <span className="text-xs uppercase muted">Sirene</span>
-                  <select value={sirenMode} onChange={(e: any) => setSirenMode(e.target.value)} className="bg-transparent border-none py-0 text-sm h-6">
-                      <option value="twotone">EU-Sirene</option>
-                      <option value="whoop">Whoop</option>
-                      <option value="beacon">Beacon</option>
-                      <option value="off">Stumm</option>
-                  </select>
-              </div>
-           </div>
-           
-           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-              <select value={selectedCardId} onChange={e => handleCardSelect(e.target.value)} className="md:col-span-2 text-lg font-bold">
-                  {PUBLIC_CARDS.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
-              </select>
-              <div className="flex items-center gap-2">
-                 <input type="number" value={applyAmount} onChange={e => setApplyAmount(Number(e.target.value))} className="w-full text-right font-mono text-lg" placeholder="€" />
-                 <span className="muted">€</span>
-              </div>
-              <div className="flex items-center gap-2">
-                 <input type="number" value={applyPoints} onChange={e => setApplyPoints(Number(e.target.value))} className="w-full text-right font-mono text-lg" placeholder="Pkt" />
-                 <span className="muted">Pkt</span>
-              </div>
-           </div>
-           
-           <div className="flex justify-between items-center bg-black/20 p-4 rounded-xl">
-               <div className="flex items-center gap-4">
-                  <span className="muted">Anwenden auf:</span>
-                  <select value={applyTarget} onChange={e => setApplyTarget(e.target.value)} className="w-48">
-                      <option value="all">Alle Teams</option>
-                      {gameState.teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                  </select>
-               </div>
-               <button className="btn-warn text-lg px-8 shadow-lg shadow-orange-500/20" onClick={handleApplyPublic}>
-                   ⚡ AUSFÜHREN
-               </button>
-           </div>
+      {/* RIGHT: Actions */}
+      <div className="panel flex flex-col h-[calc(100vh-100px)] overflow-y-auto">
+        {/* Event Cards */}
+        <div className="mb-6">
+            <h2 className="text-orange-400 mb-2">🔔 Ereignis auslösen</h2>
+            <div className="grid grid-cols-2 gap-2 mb-2">
+                {PUBLIC_CARDS.map(c => (
+                    <button key={c.id} className="btn-ghost text-left text-xs p-2 border border-white/10 hover:bg-orange-500/20"
+                        onClick={() => onApplyEvent(c.id, c.amt, c.pts, 'all')}
+                    >
+                        <div className="font-bold">{c.title}</div>
+                        <div className="opacity-70">{c.amt}€ / {c.pts} Pkt</div>
+                    </button>
+                ))}
+            </div>
+            <div className="flex gap-2 items-center bg-black/20 p-2 rounded">
+                <input type="number" placeholder="Manuell €" className="w-24 text-sm" value={applyAmount} onChange={e => setApplyAmount(Number(e.target.value))} />
+                <button className="btn-warn py-1 text-sm" onClick={() => onApplyEvent('MANUAL', applyAmount, 0, 'all')}>Anwenden (Alle)</button>
+            </div>
         </div>
 
-        {/* Secret Actions Section */}
-        <div className="panel border-l-4 border-l-indigo-500 flex-1">
-            <h2 className="text-xl text-indigo-400">🕵️ Geheime Aktionen</h2>
+        {/* Secret Actions */}
+        <div className="flex-1">
+            <h2 className="text-indigo-400 mb-2">🕵️ Geheime Aktionen</h2>
+            <div className="text-xs muted mb-4">Wähle Karte, Team und Spieler.</div>
             
-            <div className="bg-[#0b162c] p-6 rounded-xl mb-6 border border-white/10">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                    <select value={secretTeamId} onChange={e => setSecretTeamId(e.target.value)} className="text-lg">
-                        <option value="">1. Team wählen...</option>
-                        {gameState.teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                    </select>
-                    <input placeholder="2. Spieler Name" value={secretPlayer} onChange={e => setSecretPlayer(e.target.value)} className="text-lg" />
-                    <select value={secretCardId} onChange={e => setSecretCardId(e.target.value)} className="text-lg">
-                        {SECRET_CARDS.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
-                    </select>
-                </div>
-                <button className="btn w-full py-4 text-lg shadow-indigo-500/20" disabled={!secretTeamId || !secretPlayer} onClick={() => onAssignSecret(secretTeamId, secretPlayer, secretCardId)}>
-                    Karte verdeckt zuteilen
-                </button>
-            </div>
-
-            <div className="space-y-4">
-                <div className="flex justify-between items-end border-b border-white/10 pb-2 mb-4">
-                   <h3 className="text-sm font-bold uppercase tracking-widest muted m-0">Offene Aktionen</h3>
-                   <span className="text-xs bg-white/10 px-2 py-1 rounded">{gameState.teams.reduce((acc, t) => acc + t.secretActions.filter(a => a.status === 'open').length, 0)} Aktiv</span>
-                </div>
-                
-                {gameState.teams.flatMap(t => t.secretActions.filter(a => a.status === 'open').map(a => ({...a, teamName: t.name}))).length === 0 && (
-                    <div className="text-center py-8 text-slate-500 bg-black/10 rounded-xl border border-dashed border-slate-700">
-                        Keine offenen geheimen Aktionen.
-                    </div>
-                )}
-                
-                {gameState.teams.flatMap(t => t.secretActions.filter(a => a.status === 'open').map(a => ({...a, teamName: t.name}))).map(action => (
-                    <div key={action.id} className="panel bg-[#1e293b] border border-white/10 shadow-lg relative overflow-hidden group hover:border-indigo-500/50 transition-colors">
-                         <div className="absolute top-0 left-0 w-1 h-full bg-indigo-500"></div>
-                         <div className="pl-4">
-                             <div className="flex justify-between items-start mb-3">
-                                 <div>
-                                     <div className="font-bold text-lg text-white">{action.teamName}</div>
-                                     <div className="text-indigo-300 font-medium">{action.player}</div>
-                                 </div>
-                                 <span className="bg-indigo-900/50 text-indigo-200 border border-indigo-500/30 px-3 py-1 rounded text-sm font-bold">
-                                     {action.title}
-                                 </span>
-                             </div>
-                             
-                             <div className="text-slate-300 mb-4 bg-black/20 p-3 rounded">{action.text}</div>
-                             
-                             <div className="flex flex-wrap gap-3">
-                                 {SECRET_EFFECTS[action.cardId]?.options.map((opt, idx) => (
-                                     <div key={idx} className="flex gap-2 items-center bg-white/5 p-2 rounded-lg border border-white/5">
-                                         <button className="btn-ghost text-sm font-bold hover:bg-white/10 hover:text-white transition-colors" onClick={() => {
-                                             let target = undefined;
-                                             if (opt.target) {
-                                                target = prompt('Ziel-Team ID eingeben (siehe Teams Liste)') || undefined; 
-                                             }
-                                             onResolveSecret(action.teamId, action.id, action.cardId, opt, target);
-                                         }}>
-                                             {opt.label}
-                                         </button>
-                                         {opt.target && (
-                                             <select 
-                                                 className="text-sm w-32 bg-black/40 border-none h-8" 
-                                                 onChange={(e) => onResolveSecret(action.teamId, action.id, action.cardId, opt, e.target.value)}
-                                             >
-                                                 <option value="">Ziel wählen...</option>
-                                                 {gameState.teams.filter(t => t.id !== action.teamId).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                                             </select>
-                                         )}
-                                     </div>
+            {/* Simple Form embedded directly for speed */}
+            <div className="grid grid-cols-1 gap-2">
+                {SECRET_CARDS.map(sc => (
+                     <details key={sc.id} className="bg-[#111] rounded border border-white/10">
+                         <summary className="p-3 cursor-pointer text-sm font-bold hover:bg-white/5">{sc.title}</summary>
+                         <div className="p-3 border-t border-white/10">
+                             <p className="text-xs muted mb-2">{sc.text}</p>
+                             <div className="flex flex-col gap-2">
+                                 {gameState.teams.map(t => (
+                                     <button key={t.id} className="btn-ghost text-xs text-left" 
+                                        onClick={() => {
+                                            const p = prompt(`Spielername für ${t.name}?`);
+                                            if(p) onAssignSecret(t.id, p, sc.id);
+                                        }}
+                                     >
+                                         ➡ Zuweisen an {t.name}
+                                     </button>
                                  ))}
                              </div>
                          </div>
+                     </details>
+                ))}
+            </div>
+
+            {/* Active Secrets List */}
+            <div className="mt-6">
+                <h3 className="font-bold text-sm uppercase muted mb-2">Offene Aktionen</h3>
+                {gameState.teams.flatMap(t => t.secretActions.filter(a => a.status === 'open').map(a => ({...a, team: t}))).map(action => (
+                    <div key={action.id} className="bg-indigo-900/20 border border-indigo-500/30 p-2 rounded mb-2 text-xs">
+                        <div className="font-bold text-white">{action.team.name} - {action.player}</div>
+                        <div className="text-indigo-300">{action.title}</div>
+                        <button className="mt-2 btn-ghost text-[10px] w-full border border-indigo-500" onClick={() => onResolveSecret(action.teamId, action.id, action.cardId, {type: 'random', success:{amt:0,pts:0,log:'Manuell gelöst'}, fail:{amt:0,pts:0,log:'Manuell gelöst'}})}>
+                            Als erledigt markieren
+                        </button>
                     </div>
                 ))}
             </div>
         </div>
-        
-        {/* Helper / Reference (Collapsed by default for space) */}
-        <details className="panel">
-            <summary className="font-bold cursor-pointer text-lg">📚 Referenz: Geheime Karten</summary>
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mt-4">
-                {SECRET_CARDS.map(card => (
-                    <div key={card.id} className="bg-black/20 p-4 rounded border border-white/5 text-sm">
-                        <strong className="text-orange-400 block mb-1">{card.title}</strong>
-                        <div className="opacity-70 mb-2">{card.text}</div>
-                        <div className="text-xs text-blue-300 border-t border-white/5 pt-2 mt-2">{SECRET_EXPLAIN[card.id]?.tip}</div>
-                    </div>
-                ))}
-            </div>
-        </details>
       </div>
     </div>
   );
