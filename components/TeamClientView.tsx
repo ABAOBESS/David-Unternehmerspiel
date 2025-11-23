@@ -6,50 +6,67 @@ import { YEAR_CONFIGS, ICONS, INDUSTRIES } from '../constants';
 interface Props {
   team: Team;
   gameState: GameState;
+  onSetIndustry?: (ind: IndustryType) => void;
+  onSelectOption?: (opt: 'A'|'B'|'C') => void;
 }
 
-const TeamClientView: React.FC<Props> = ({ team, gameState }) => {
-  const [selectedIndustry, setSelectedIndustry] = useState<IndustryType | null>(null);
-  
-  // Year 0 Logic (Industry Selection)
+const TeamClientView: React.FC<Props> = ({ team, gameState, onSetIndustry, onSelectOption }) => {
+  const [localSelection, setLocalSelection] = useState<IndustryType | null>(null);
+
+  // --- Year 0: Industry Selection ---
   if (!team.industry) {
-     const handleSelectIndustry = (ind: IndustryType) => {
-         // In a real app, this would call an API. 
-         // For this local sync demo, we can't easily write back without a callback prop or context.
-         // However, the architecture passes 'onSubmit' usually. 
-         // Since App.tsx manages state via localstorage sync mostly for admin,
-         // we will just show a "Bitte beim Spielleiter melden" or simpler: 
-         // Assume this component is mostly read-only OR needs a way to push back.
-         // *CRITICAL FIX*: Providing visual feedback but asking them to tell the GM, 
-         // OR assuming the GM sets it. 
-         // BUT user asked for "Year 0 Industry Selection".
-         // Let's implement a local selection that effectively just shows "Waiting for GM" 
-         // or we need a way to 'submit' this decision.
-         setSelectedIndustry(ind);
+     const handleSelect = (ind: IndustryType) => {
+         if (onSetIndustry) {
+             onSetIndustry(ind);
+             setLocalSelection(ind);
+         }
      };
 
-     if (selectedIndustry) {
+     // If already selected locally (or confirmed via props), show Confirmation/Waiting screen
+     if (team.industry || localSelection) {
+         const activeIndustry = team.industry || localSelection;
+         const info = INDUSTRIES[activeIndustry!];
+         
          return (
              <div className="min-h-screen bg-[#0b1328] flex flex-col items-center justify-center p-6 text-center text-white">
-                 <div className="text-6xl mb-4">{INDUSTRIES[selectedIndustry].icon}</div>
-                 <h1 className="text-2xl font-bold mb-2">Ihr seid ein {INDUSTRIES[selectedIndustry].label}</h1>
-                 <p className="opacity-70 mb-8">Bitte teilt dies der Spielleitung mit, um das Spiel zu starten!</p>
-                 <div className="p-4 bg-white/10 rounded-lg animate-pulse">
-                     Warten auf Start von Jahr 1...
+                 <div className="w-24 h-24 bg-indigo-600 rounded-full flex items-center justify-center text-6xl mb-6 shadow-[0_0_30px_rgba(79,70,229,0.5)]">
+                    {info.icon}
                  </div>
+                 <h1 className="text-3xl font-bold mb-2">Auswahl bestätigt!</h1>
+                 <h2 className="text-xl text-indigo-300 mb-6">Ihr startet als: {info.label}</h2>
+                 
+                 <div className="bg-white/10 p-6 rounded-xl border border-white/10 max-w-sm w-full animate-pulse">
+                     <p className="text-sm font-bold uppercase tracking-wider opacity-60 mb-2">Status</p>
+                     <p className="text-lg">Warten auf Spielstart (Jahr 1)...</p>
+                 </div>
+                 <p className="mt-8 text-sm opacity-50">Bitte schaut auf das Haupt-Dashboard.</p>
              </div>
          );
      }
 
+     // Selection Screen
      return (
-        <div className="min-h-screen bg-[#0b1328] p-4 text-[#e6eef6]">
-            <h1 className="text-2xl font-bold text-center mb-6 mt-4">Wählt eure Branche</h1>
-            <div className="grid gap-4">
+        <div className="min-h-screen bg-[#0b1328] p-4 text-[#e6eef6] flex flex-col">
+            <header className="py-6 text-center">
+                <h1 className="text-3xl font-bold text-white mb-2">Willkommen, {team.name}</h1>
+                <p className="text-slate-400">Wählt eure Branche für den Spielstart</p>
+            </header>
+            
+            <div className="flex-1 grid gap-4 pb-8 max-w-lg mx-auto w-full">
                 {(Object.keys(INDUSTRIES) as IndustryType[]).map(key => (
-                    <button key={key} onClick={() => handleSelectIndustry(key)} className="panel bg-[#1e293b] text-left hover:border-cyan-400 transition-all p-6 group">
-                        <div className="text-4xl mb-2 group-hover:scale-110 transition-transform">{INDUSTRIES[key].icon}</div>
-                        <div className="font-bold text-xl text-white mb-1">{INDUSTRIES[key].label}</div>
-                        <div className="text-sm opacity-70">{INDUSTRIES[key].desc}</div>
+                    <button 
+                        key={key} 
+                        onClick={() => handleSelect(key)} 
+                        className="panel bg-[#1e293b] text-left hover:border-cyan-400 hover:bg-[#253248] transition-all p-6 group rounded-2xl relative overflow-hidden shadow-lg"
+                    >
+                        <div className="absolute right-[-20px] top-[-20px] text-[100px] opacity-5 group-hover:opacity-10 transition-opacity rotate-12">
+                            {INDUSTRIES[key].icon}
+                        </div>
+                        <div className="text-5xl mb-4 group-hover:scale-110 transition-transform origin-left relative z-10">
+                            {INDUSTRIES[key].icon}
+                        </div>
+                        <div className="font-bold text-2xl text-white mb-2 relative z-10">{INDUSTRIES[key].label}</div>
+                        <div className="text-sm text-slate-400 relative z-10 leading-relaxed">{INDUSTRIES[key].desc}</div>
                     </button>
                 ))}
             </div>
@@ -57,7 +74,7 @@ const TeamClientView: React.FC<Props> = ({ team, gameState }) => {
      );
   }
 
-  // Normal Game Loop
+  // --- Main Game Loop (Year 1+) ---
   const yearConfig = YEAR_CONFIGS.find(y => y.year === gameState.year) || YEAR_CONFIGS[0];
   const options = getOptionsForTeam(gameState.year, team);
   
@@ -69,26 +86,26 @@ const TeamClientView: React.FC<Props> = ({ team, gameState }) => {
       <div className="max-w-md mx-auto space-y-4">
         
         {/* Header */}
-        <div className="panel bg-gradient-to-r from-[#0f172a] to-[#1e293b] border-l-4 border-l-cyan-400 relative overflow-hidden">
-           <div className="flex items-center gap-3 mb-2 relative z-10">
-              <div className="w-10 h-10" dangerouslySetInnerHTML={{ __html: ICONS[team.icon] || ICONS['gear'] }} />
+        <div className="panel bg-gradient-to-r from-[#0f172a] to-[#1e293b] border-l-4 border-l-cyan-400 relative overflow-hidden shadow-lg">
+           <div className="flex items-center gap-4 mb-4 relative z-10">
+              <div className="w-12 h-12 bg-white/10 rounded-lg flex items-center justify-center" dangerouslySetInnerHTML={{ __html: ICONS[team.icon] || ICONS['gear'] }} />
               <div>
-                  <h1 className="text-xl font-bold leading-none">{team.name}</h1>
-                  <div className="text-xs text-cyan-300 flex items-center gap-1">
+                  <h1 className="text-2xl font-bold leading-none mb-1">{team.name}</h1>
+                  <div className="text-xs text-cyan-300 font-bold uppercase tracking-wider flex items-center gap-1 bg-cyan-900/30 px-2 py-1 rounded w-fit">
                       {team.industry ? INDUSTRIES[team.industry].icon + ' ' + INDUSTRIES[team.industry].label : 'Keine Branche'}
                   </div>
               </div>
            </div>
            
-           <div className="grid grid-cols-2 gap-4 mt-4 relative z-10">
+           <div className="grid grid-cols-2 gap-4 border-t border-white/5 pt-4 relative z-10">
               <div>
-                  <div className="text-xs muted uppercase">Kapital</div>
+                  <div className="text-[10px] text-slate-400 uppercase font-bold tracking-widest mb-1">Kapital</div>
                   <div className={`text-2xl font-mono font-bold ${team.capital < 0 ? 'text-red-500' : 'text-green-400'}`}>
                       {formatCurrency(team.capital)}
                   </div>
               </div>
               <div>
-                  <div className="text-xs muted uppercase">Score</div>
+                  <div className="text-[10px] text-slate-400 uppercase font-bold tracking-widest mb-1">Score</div>
                   <div className="text-2xl font-mono font-bold text-yellow-500">
                       {team.points}
                   </div>
@@ -97,73 +114,77 @@ const TeamClientView: React.FC<Props> = ({ team, gameState }) => {
 
             {/* Joker Badge */}
             {team.jokerActive && (
-                <div className="mt-3 bg-red-500/20 border border-red-500/50 p-2 rounded text-xs text-red-200 flex items-center gap-2">
-                    <span>⚠️</span>
-                    {team.jokerActive === 'BANK' ? 'Bank-Kredit aktiv (-10k/Jahr)' : 'Investor hat Kontrolle (-60% Score)'}
+                <div className="mt-4 bg-red-500/10 border border-red-500/40 p-3 rounded-lg text-xs text-red-200 flex items-start gap-3">
+                    <span className="text-lg">⚠️</span>
+                    <div>
+                        <div className="font-bold text-red-400 uppercase">Joker Aktiv</div>
+                        {team.jokerActive === 'BANK' ? 'Bank-Kredit: -10.000€ Zinsen pro Jahr.' : 'Investor: Dein End-Score wird um 60% gekürzt.'}
+                    </div>
                 </div>
             )}
         </div>
 
         {/* Current Round Info */}
-        <div className="panel">
-           <div className="flex justify-between items-center mb-2">
-               <h2 className="m-0 text-lg">Jahr {gameState.year}: {yearConfig.title}</h2>
-               <span className="pill pill-ok">Live</span>
+        <div className="panel shadow-lg">
+           <div className="flex justify-between items-center mb-3">
+               <h2 className="m-0 text-lg font-bold text-white">Jahr {gameState.year}: {yearConfig.title}</h2>
+               <span className="pill pill-ok text-[10px] uppercase tracking-wider">Live</span>
            </div>
-           <div className="bg-black/30 p-3 rounded text-sm italic mb-4 border-l-2 border-white/20">
+           <div className="bg-[#0f172a] p-4 rounded-lg text-sm text-slate-300 italic mb-5 border-l-2 border-indigo-500 leading-relaxed shadow-inner">
                "{yearConfig.scenario}"
            </div>
 
            {isBooked ? (
-               <div className="bg-green-500/20 border border-green-500 p-4 rounded text-center">
-                   <div className="text-2xl mb-2">✅</div>
-                   <div className="font-bold text-green-400">Entscheidung eingeloggt</div>
-                   <div className="text-sm opacity-80 mt-1">Warte auf das nächste Jahr...</div>
+               <div className="bg-green-500/10 border border-green-500/50 p-6 rounded-xl text-center shadow-[0_0_20px_rgba(34,197,94,0.1)]">
+                   <div className="text-4xl mb-3 animate-bounce">✅</div>
+                   <div className="font-bold text-green-400 text-lg">Entscheidung verbucht</div>
+                   <div className="text-sm opacity-80 mt-2">Lehnt euch zurück. Warten auf das nächste Jahr...</div>
                </div>
            ) : options ? (
-               <div className="space-y-3">
-                   <div className="text-xs uppercase font-bold text-slate-400 mb-1">Deine Optionen (Tippen zum Wählen)</div>
+               <div className="space-y-4">
+                   <div className="text-xs uppercase font-bold text-slate-500 tracking-widest mb-2 text-center">Wähle eine Option</div>
                    {(['A','B','C'] as const).map(key => {
                        const opt = options[key];
+                       const isSelected = team.selectedOption === key;
                        return (
-                           <div key={key} className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${team.selectedOption === key ? 'bg-cyan-900/40 border-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.3)]' : 'bg-[#1e293b] border-transparent hover:border-white/20'}`}
-                                onClick={() => {
-                                    // In a real networked app, this sends data. Here we assume visual selection for the user 
-                                    // to show the GM.
-                                    // ideally we set a state 'selectedOption' on the team object in App state
-                                    // But user is "Client View"
-                                    alert(`Du hast Option ${key} gewählt:\n\n${opt.note}\n\nBitte zeige dies der Spielleitung zur Bestätigung!`);
-                                }}
+                           <button 
+                                key={key} 
+                                onClick={() => onSelectOption && onSelectOption(key)}
+                                className={`w-full relative p-5 rounded-2xl border-2 cursor-pointer transition-all active:scale-95 text-left ${isSelected ? 'bg-cyan-900/40 border-cyan-400 shadow-[0_0_20px_rgba(34,211,238,0.2)]' : 'bg-[#1e293b] border-transparent hover:border-white/10 hover:bg-[#253248]'}`}
                            >
-                               <div className="flex justify-between items-center mb-2">
-                                   <span className="font-bold text-lg text-white">Option {key}</span>
-                                   <div className="text-right text-xs">
-                                       <div className={opt.amt >= 0 ? "text-green-400" : "text-red-400"}>{opt.amt >= 0 ? '+' : ''}{opt.amt}€</div>
-                                       <div className={opt.pts >= 0 ? "text-yellow-400" : "text-orange-400"}>{opt.pts >= 0 ? '+' : ''}{opt.pts} Pkt</div>
-                                   </div>
+                               <div className={`absolute top-4 right-4 text-xs font-bold border rounded px-2 py-1 transition-colors ${isSelected ? 'bg-cyan-500 text-black border-cyan-500' : 'text-slate-500 border-slate-700'}`}>
+                                   {isSelected ? 'GEWÄHLT' : `OPT ${key}`}
                                </div>
-                               <div className="text-sm opacity-80">{opt.title}</div>
-                               <div className="text-xs text-slate-500 mt-1">{opt.note}</div>
-                           </div>
+                               
+                               <div className="font-bold text-lg text-white mb-1 pr-20">{opt.title}</div>
+                               <div className="text-sm text-slate-400 mb-4">{opt.note}</div>
+                               
+                               <div className="flex gap-3 text-sm font-mono font-bold bg-black/20 p-2 rounded-lg w-fit">
+                                   <div className={opt.amt >= 0 ? "text-green-400" : "text-red-400"}>{opt.amt >= 0 ? '+' : ''}{formatCurrency(opt.amt)}</div>
+                                   <div className="text-slate-600">|</div>
+                                   <div className={opt.pts >= 0 ? "text-blue-400" : "text-orange-400"}>{opt.pts >= 0 ? '+' : ''}{opt.pts} Pkt</div>
+                               </div>
+                           </button>
                        )
                    })}
                </div>
            ) : (
-               <div className="opacity-50 text-center">Keine Optionen verfügbar.</div>
+               <div className="opacity-50 text-center py-8">Keine Optionen verfügbar.</div>
            )}
         </div>
 
         {/* Messages */}
         <div className="panel">
-            <h2 className="text-sm muted uppercase mb-3">Nachrichten</h2>
+            <h2 className="text-xs muted uppercase font-bold tracking-widest mb-4">Geheime Nachrichten</h2>
             {team.secretActions.length === 0 ? (
-                <div className="text-center py-4 opacity-30 text-xs">Keine Nachrichten.</div>
+                <div className="text-center py-6 opacity-30 text-sm border-2 border-dashed border-white/5 rounded-xl">Keine Nachrichten.</div>
             ) : (
-                <div className="space-y-2">
+                <div className="space-y-3">
                     {team.secretActions.map(action => (
-                        <div key={action.id} className="p-3 rounded bg-white/5 border border-white/10 text-xs">
-                            <div className="font-bold text-orange-200">{action.title}</div>
-                            <div className="opacity-70">{action.text}</div>
+                        <div key={action.id} className="p-4 rounded-xl bg-gradient-to-br from-indigo-900/40 to-purple-900/40 border border-white/10 text-sm relative overflow-hidden">
+                            <div className="absolute top-0 right-0 p-1 bg-white/10 rounded-bl text-[10px] font-mono opacity-50">SECRET</div>
+                            <div className="font-bold text-indigo-200 mb-1">{action.title}</div>
+                            <div className="opacity-80 leading-relaxed">{action.text}</div>
                         </div>
                     ))}
                 </div>

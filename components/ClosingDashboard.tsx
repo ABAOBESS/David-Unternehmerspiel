@@ -20,6 +20,13 @@ const ClosingDashboard: React.FC<Props> = ({ gameState, initialYear, initialOpti
   const options = selectedTeam ? getOptionsForTeam(selectedYear, selectedTeam) : null;
   const optionConfig = options ? options[selectedOption] : null;
 
+  // Auto-select the option the team has clicked on their device
+  useEffect(() => {
+    if (selectedTeam && selectedTeam.selectedOption) {
+        setSelectedOption(selectedTeam.selectedOption);
+    }
+  }, [selectedTeamId, selectedTeam?.selectedOption]);
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[400px_1fr] gap-6">
       <div className="panel flex flex-col h-[calc(100vh-100px)] overflow-y-auto">
@@ -29,7 +36,11 @@ const ClosingDashboard: React.FC<Props> = ({ gameState, initialYear, initialOpti
            <div className="bg-black/20 p-4 rounded-xl border border-white/5">
              <label className="block text-sm font-bold uppercase text-slate-400 mb-2">1. Team</label>
              <select value={selectedTeamId} onChange={e => setSelectedTeamId(e.target.value)} className="w-full text-lg py-3">
-                {gameState.teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                {gameState.teams.map(t => (
+                    <option key={t.id} value={t.id}>
+                        {t.name} {t.selectedOption ? `(Wählt: ${t.selectedOption})` : ''}
+                    </option>
+                ))}
              </select>
            </div>
            
@@ -47,9 +58,14 @@ const ClosingDashboard: React.FC<Props> = ({ gameState, initialYear, initialOpti
                      <button 
                         key={opt}
                         onClick={() => setSelectedOption(opt)}
-                        className={`py-3 rounded font-bold text-lg ${selectedOption === opt ? 'bg-indigo-600 text-white' : 'bg-white/10 hover:bg-white/20'}`}
+                        className={`py-3 rounded font-bold text-lg relative ${selectedOption === opt ? 'bg-indigo-600 text-white' : 'bg-white/10 hover:bg-white/20'}`}
                      >
                          {opt}
+                         {selectedTeam?.selectedOption === opt && (
+                             <span className="absolute -top-2 -right-2 bg-green-500 text-black text-[10px] px-2 py-0.5 rounded-full shadow-md animate-bounce">
+                                 TEAM
+                             </span>
+                         )}
                      </button>
                  ))}
              </div>
